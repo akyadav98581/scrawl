@@ -1,0 +1,18 @@
+# One web service serves the built client and the Socket.io server.
+# Keep numInstances at 1: rooms live in memory on one process (see README, "Scaling").
+services:
+  - type: web
+    name: scrawl
+    runtime: node
+    plan: free
+    numInstances: 1
+    buildCommand: npm ci --include=dev && npm run build
+    startCommand: node server/index.js
+    healthCheckPath: /healthz
+    envVars:
+      - key: NODE_VERSION
+        value: 22
+      - key: MONGODB_DB
+        value: scrawl
+      - key: MONGODB_URI
+        sync: false # paste the Atlas connection string in the dashboard
