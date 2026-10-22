@@ -23,6 +23,7 @@
     "mongodb": "^7.7.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
+    "redis": "^6.3.0",
     "socket.io": "^4.8.4",
     "socket.io-client": "^4.8.4",
     "y-indexeddb": "^9.0.12",

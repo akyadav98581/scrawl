@@ -7,9 +7,13 @@ import { Server } from 'socket.io'
 import { Rooms } from './rooms.js'
 
 const ROOM_ID = /^[A-Za-z0-9_-]{6,64}$/
+const JOINS_PER_MIN = 60 // per client address
 const dist = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'dist')
 
-export async function startServer({ store, port = 0, roomOpts } = {}) {
+// Behind Render the address is in X-Forwarded-For. Spoofable without a proxy, so best effort.
+const clientIp = (socket) => socket.handshake.headers['x-forwarded-for']?.split(',')[0].trim() || socket.handshake.address
+
+export async function startServer({ store, limiter, port = 0, roomOpts } = {}) {
   await store.init()
   const app = express()
   app.get('/healthz', (_req, res) => res.send('ok'))
@@ -29,6 +33,7 @@ export async function startServer({ store, port = 0, roomOpts } = {}) {
     socket.on('join', async ({ room: id, sv } = {}, ack) => {
       if (room || typeof ack !== 'function') return
       if (!ROOM_ID.test(id)) return ack({ error: 'bad room id' })
+      if (limiter && !(await limiter.allow(`join:${clientIp(socket)}`, JOINS_PER_MIN, 60))) return ack({ error: 'too many joins' })
       try {
         const joined = await rooms.join(socket, id, sv ? new Uint8Array(sv) : undefined)
         room = joined.room

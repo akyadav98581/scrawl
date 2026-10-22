@@ -17,6 +17,8 @@ npm run dev
 
 Open http://localhost:5173, make a room, then open the same link in a second window. With no `MONGODB_URI` set, the server starts its own local mongod, so there is nothing else to install.
 
+With Docker, `docker compose up --build` starts the app, MongoDB and Redis, and serves everything on http://localhost:3001.
+
 Keys: `V` select, `P` pen, `L` line, `R` rectangle, `O` ellipse, `T` text, `E` eraser, hold `Space` to pan, `Ctrl+Z` undo, `Shift+1` fit to screen. Mouse wheel zooms, trackpad scroll pans.
 
 ## How it works
@@ -33,6 +35,10 @@ Two people changing different properties of one shape both win, so one can move 
 
 MongoDB holds a snapshot per room and a log of updates. The server writes the log in batches and folds it into a new snapshot after 200 entries, when a room empties, or on shutdown. Loading a room is the snapshot plus a replay of the log. A snapshot has to fit in one 16 MB document.
 
+### Redis
+
+Redis is optional. If `REDIS_URL` is set, the join limit (60 per minute per address) is counted in Redis, so a restart doesn't reset it and a second instance would share it. Without it the count sits in a Map in the server process. If Redis goes down, joins are let through. The address comes from `X-Forwarded-For`, which a client can fake when nothing sits in front of the server, so treat the limit as a speed bump.
+
 ## Performance
 
 There are two canvases: committed shapes underneath, and a live layer on top for strokes in progress, selection and cursors. The viewport goes straight into `setTransform`. Only the rectangle around a changed shape is repainted, panning copies existing pixels and paints just the new strips, and shapes far off screen are skipped.
@@ -44,6 +50,7 @@ Measured with 5000 objects in headless Firefox (software canvas, 1440x900) using
 1. Make a free MongoDB Atlas cluster and a database user. Under Network Access allow `0.0.0.0/0`, since Render's free tier has no fixed IP.
 2. In Render, create a Blueprint from this repo. It reads `render.yaml`.
 3. Paste the Atlas connection string into `MONGODB_URI`.
+4. Optional: add a Render Key Value instance and put its internal URL in `REDIS_URL`.
 
 The free service sleeps when idle, and the page shows "Waking the server" while it connects. I point an uptime monitor at `/healthz` to keep it awake.
 
@@ -63,4 +70,4 @@ The first run of e2e and bench needs `npx playwright install firefox`.
 
 ## Not here
 
-No login, comments, image upload or export, and no rate limiting. Anyone with a room link can edit.
+No login, comments, image upload or export, and no limits besides the join limit. Anyone with a room link can edit.
